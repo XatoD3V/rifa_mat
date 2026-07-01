@@ -6,6 +6,9 @@
 <title>Rifa Solidaria - Apoyemos a Mateito</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Firebase (guarda los números vendidos en la nube, compartido para todos) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root{
     --night:#0c0f1a;
@@ -465,6 +468,7 @@
     <span><i class="dot sel"></i>Seleccionado</span>
     <span><i class="dot taken"></i>Ya vendido</span>
   </div>
+  <p id="syncStatus" style="text-align:center;font-size:0.75rem;color:var(--muted);margin:-6px 0 18px;">🔄 Conectando con la base de datos...</p>
 
   <div class="grid-controls">
     <input type="text" id="searchNum" placeholder="🔍 Buscar número..." inputmode="numeric">
@@ -523,15 +527,41 @@
 <script>
   const TOTAL_NUMBERS = 300;
   const PRICE = 3.00;
-  const STORAGE_KEY = 'rifaMateitoOcupados';
+
+  // ⚠️ PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE (la consigues en la consola de Firebase)
+  const firebaseConfig = {
+    apiKey: "AIzaSyDozDNn99ID1jMbf1-4Ak3H9ljXLiGAXwg",
+    authDomain: "rifa-mateito.firebaseapp.com",
+    databaseURL: "https://rifa-mateito-default-rtdb.firebaseio.com",
+    projectId: "rifa-mateito",
+    storageBucket: "rifa-mateito.firebasestorage.app",
+    messagingSenderId: "25241205524",
+    appId: "1:25241205524:web:f0d04ef422b9654bada001"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const COLLECTION = 'rifa_mateito_numeros';
 
   // occupied = { "12": {name:"...", phone:"...", date:"..."} , ... }
   let occupied = {};
-  try {
-    occupied = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch(e) { occupied = {}; }
-
   let selected = new Set();
+  let firebaseReady = false;
+
+  // Escucha en tiempo real: cualquier compra de cualquier persona actualiza la cuadrícula al instante
+  db.collection(COLLECTION).onSnapshot((snapshot) => {
+    occupied = {};
+    snapshot.forEach(doc => { occupied[doc.id] = doc.data(); });
+    firebaseReady = true;
+    document.getElementById('syncStatus').textContent = '🟢 Conectado — números actualizados en tiempo real';
+    buildGrid();
+  }, (error) => {
+    console.error(error);
+    document.getElementById('syncStatus').textContent = '⚠️ No se pudo conectar a la base de datos. Revisa firebaseConfig y las reglas de Firestore.';
+  });
+
+  // Muestra la cuadrícula de inmediato (se actualizará sola en cuanto llegue la data de Firebase)
+  buildGrid();
 
   const grid = document.getElementById('numberGrid');
   const countSelected = document.getElementById('countSelected');
@@ -621,31 +651,59 @@
     if(e.target === modalOverlay) modalOverlay.classList.remove('open');
   });
 
-  document.getElementById('confirmBuy').addEventListener('click', () => {
+  const confirmBtn = document.getElementById('confirmBuy');
+
+  confirmBtn.addEventListener('click', async () => {
     const name = buyerName.value.trim();
     if(!name){
       buyerName.focus();
       buyerName.style.borderColor = '#e63946';
       return;
     }
+    if(!firebaseReady){
+      alert('Todavía se está conectando a la base de datos, espera un segundo e inténtalo de nuevo.');
+      return;
+    }
     const phone = buyerPhone.value.trim();
     const dateStr = new Date().toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
-
-    // lock numbers
     const nums = [...selected].sort((a,b)=>a-b);
-    nums.forEach(n => {
-      occupied[n] = { name, phone, date: dateStr };
-    });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(occupied));
 
-    generateTicketImage(name, phone, nums, dateStr);
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Guardando...';
 
-    // reset selection & rebuild grid
-    selected.clear();
-    updateBar();
-    buildGrid();
-    modalOverlay.classList.remove('open');
-    showToast('🎉 ¡Ticket generado y números bloqueados!');
+    try {
+      // Transacción: si alguien más compró uno de estos números en el último segundo, se cancela todo
+      await db.runTransaction(async (tx) => {
+        const refs = nums.map(n => db.collection(COLLECTION).doc(String(n)));
+        const snaps = [];
+        for(const ref of refs){ snaps.push(await tx.get(ref)); }
+
+        const conflicts = [];
+        snaps.forEach((snap, i) => { if(snap.exists) conflicts.push(nums[i]); });
+        if(conflicts.length > 0){
+          throw new Error('¡Uy! El número ' + conflicts.join(', ') + ' ya lo compró otra persona hace un instante. Elige otro número.');
+        }
+
+        snaps.forEach((snap, i) => {
+          tx.set(refs[i], {
+            name, phone, date: dateStr,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        });
+      });
+
+      generateTicketImage(name, phone, nums, dateStr);
+
+      selected.clear();
+      updateBar();
+      modalOverlay.classList.remove('open');
+      showToast('🎉 ¡Ticket generado y números bloqueados para todos!');
+    } catch(err){
+      alert(err.message || 'Ocurrió un error al guardar tu compra. Intenta de nuevo.');
+    } finally {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Generar Ticket 🎟️';
+    }
   });
 
   function showToast(msg){
@@ -818,8 +876,6 @@
     }
     ctx.fillText(line, x, curY);
   }
-
-  buildGrid();
 </script>
 </body>
 </html>
