@@ -460,7 +460,7 @@
     </div>
   </div>
 
-  <h2 class="section-title"> Elige tu <span>Número</span></h2>
+  <h2 class="section-title">🔢 Elige tu <span>Número</span></h2>
   <p class="section-sub">300 números disponibles del 1 al 300 · toca para seleccionar</p>
 
   <div class="legend">
@@ -468,7 +468,7 @@
     <span><i class="dot sel"></i>Seleccionado</span>
     <span><i class="dot taken"></i>Ya vendido</span>
   </div>
-  <p id="syncStatus" style="text-align:center;font-size:0.75rem;color:var(--muted);margin:-6px 0 18px;">Conectando espere un momento...</p>
+  <p id="syncStatus" style="text-align:center;font-size:0.75rem;color:var(--muted);margin:-6px 0 18px;">🔄 Conectando con la base de datos...</p>
 
   <div class="grid-controls">
     <input type="text" id="searchNum" placeholder="🔍 Buscar número..." inputmode="numeric">
@@ -495,6 +495,8 @@
 
   <footer>
     Rifa Solidaria "Apoyemos a Mateito" · Hecho con ❤️ para una buena causa
+    <br>
+    <a href="#" id="resetLink" style="color:var(--muted);font-size:0.7rem;text-decoration:none;opacity:0.5;">⚙️ Admin</a>
   </footer>
 </div>
 
@@ -711,6 +713,33 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3200);
   }
+
+  // ---------- ADMIN: REINICIAR RIFA ----------
+  document.getElementById('resetLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const pass = prompt('Contraseña de administrador:');
+    if(pass === null) return;
+    if(pass !== 'RIFA2026'){
+      alert('Contraseña incorrecta.');
+      return;
+    }
+    const sure = confirm('¿Seguro que quieres reiniciar la rifa?\n\nEsto borrará TODOS los números vendidos y no se puede deshacer.');
+    if(!sure) return;
+
+    try{
+      const snapshot = await db.collection(COLLECTION).get();
+      if(snapshot.empty){
+        showToast('La rifa ya estaba vacía, no había nada que borrar.');
+        return;
+      }
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      showToast('🔄 ¡Rifa reiniciada! Todos los números están disponibles de nuevo.');
+    } catch(err){
+      alert('Error al reiniciar la rifa: ' + err.message);
+    }
+  });
 
   // ---------- TICKET IMAGE GENERATION ----------
   function generateTicketImage(name, phone, nums, dateStr){
