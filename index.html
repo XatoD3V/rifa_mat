@@ -532,7 +532,6 @@
   const firebaseConfig = {
     apiKey: "AIzaSyDozDNn99ID1jMbf1-4Ak3H9ljXLiGAXwg",
     authDomain: "rifa-mateito.firebaseapp.com",
-    databaseURL: "https://rifa-mateito-default-rtdb.firebaseio.com",
     projectId: "rifa-mateito",
     storageBucket: "rifa-mateito.firebasestorage.app",
     messagingSenderId: "25241205524",
@@ -560,15 +559,15 @@
     document.getElementById('syncStatus').textContent = '⚠️ No se pudo conectar a la base de datos. Revisa firebaseConfig y las reglas de Firestore.';
   });
 
-  // Muestra la cuadrícula de inmediato (se actualizará sola en cuanto llegue la data de Firebase)
-  buildGrid();
-
   const grid = document.getElementById('numberGrid');
   const countSelected = document.getElementById('countSelected');
   const totalPrice = document.getElementById('totalPrice');
   const buyBtn = document.getElementById('buyBtn');
   const clearBtn = document.getElementById('clearSelection');
   const searchInput = document.getElementById('searchNum');
+
+  // Muestra la cuadrícula de inmediato (se actualizará sola en cuanto llegue la data de Firebase)
+  buildGrid();
 
   function buildGrid(){
     grid.innerHTML = '';
