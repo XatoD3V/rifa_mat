@@ -397,11 +397,173 @@
   }
   .toast.show{transform:translateX(-50%) translateY(0);}
 
+  /* ---------- PROGRESS BAR ---------- */
+  .progress-wrap{
+    max-width:700px;margin:0 auto 20px;
+  }
+  .progress-label{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:0.8rem;color:var(--muted);margin-bottom:6px;
+  }
+  .progress-label b{color:var(--paper);font-size:0.95rem;}
+  .progress-track{
+    width:100%;height:16px;border-radius:20px;
+    background:var(--night-2);
+    border:1px solid rgba(255,255,255,0.1);
+    overflow:hidden;position:relative;
+  }
+  .progress-fill{
+    height:100%;width:0%;border-radius:20px;
+    background:linear-gradient(90deg, var(--chakra-blue), var(--naruto-orange));
+    transition:width .6s ease;
+    position:relative;
+    box-shadow:0 0 12px rgba(255,122,0,0.5);
+  }
+  .progress-fill.full{
+    background:linear-gradient(90deg, var(--gold), var(--naruto-orange), var(--sharingan));
+    background-size:200% 100%;
+    animation:progressPulse 1.6s linear infinite;
+  }
+  @keyframes progressPulse{
+    0%{background-position:0% 0%;}
+    100%{background-position:200% 0%;}
+  }
+
+  /* ---------- LAYOUT: GRID + TICKETS SIDEBAR ---------- */
+  .raffle-layout{
+    display:grid;
+    grid-template-columns:1fr 300px;
+    gap:18px;
+    align-items:start;
+  }
+  .grid-col{min-width:0;}
+
+  .tickets-panel{
+    background:var(--night-2);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:18px;
+    padding:16px;
+    max-height:700px;
+    display:flex;
+    flex-direction:column;
+    position:sticky;
+    top:12px;
+  }
+  .tickets-panel h3{
+    font-family:'Bangers',cursive;
+    letter-spacing:1px;
+    font-size:1.15rem;
+    color:var(--naruto-orange-2);
+    margin:0 0 4px;
+    text-align:center;
+  }
+  .tickets-panel .tickets-count{
+    text-align:center;font-size:0.75rem;color:var(--muted);margin-bottom:12px;
+  }
+  .tickets-list{
+    overflow-y:auto;
+    flex:1;
+    display:flex;flex-direction:column;gap:8px;
+    padding-right:4px;
+    max-height:560px;
+  }
+  .tickets-list::-webkit-scrollbar{width:6px;}
+  .tickets-list::-webkit-scrollbar-thumb{background:rgba(255,122,0,0.4);border-radius:6px;}
+  .ticket-item{
+    background:#1b2138;
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:10px;
+    padding:9px 10px;
+  }
+  .ticket-item .buyer{
+    font-weight:600;font-size:0.82rem;color:var(--paper);
+    display:flex;align-items:center;gap:6px;
+  }
+  .ticket-item .buyer .cnt{
+    margin-left:auto;font-size:0.68rem;font-weight:400;color:var(--muted);
+  }
+  .ticket-item .nums{
+    display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;
+  }
+  .ticket-item .nums span{
+    background:linear-gradient(145deg, var(--chakra-blue), var(--dbz-blue));
+    color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:6px;font-weight:600;
+  }
+  .tickets-empty{
+    text-align:center;color:var(--muted);font-size:0.8rem;padding:26px 10px;line-height:1.5;
+  }
+
+  /* ---------- SORTEO ---------- */
+  .sorteo-banner{
+    display:none;
+    max-width:640px;margin:34px auto 10px;
+    text-align:center;
+    background:linear-gradient(135deg, var(--gold), var(--naruto-orange) 55%, var(--sharingan));
+    border-radius:20px;
+    padding:24px 20px;
+    box-shadow:0 10px 34px rgba(230,57,70,0.4);
+  }
+  .sorteo-banner.show{display:block;animation:sorteoAppear .6s ease;}
+  @keyframes sorteoAppear{
+    from{opacity:0;transform:translateY(14px) scale(0.97);}
+    to{opacity:1;transform:translateY(0) scale(1);}
+  }
+  .sorteo-banner h3{
+    font-family:'Bangers',cursive;font-size:1.7rem;color:#1a1200;
+    margin:0 0 6px;letter-spacing:1px;
+  }
+  .sorteo-banner p{color:#2a1500;font-size:0.85rem;margin:0 0 16px;}
+  .sorteo-banner .btn-sorteo{
+    font-family:'Bangers',cursive;letter-spacing:1px;font-size:1.15rem;
+    padding:14px 30px;border-radius:14px;border:none;cursor:pointer;
+    background:#1a1200;color:var(--gold);
+    box-shadow:0 8px 20px rgba(0,0,0,0.35);
+    transition:transform .15s ease;
+  }
+  .sorteo-banner .btn-sorteo:hover{transform:translateY(-2px) scale(1.03);}
+
+  .winner-box{
+    background:rgba(26,18,0,0.18);
+    border:2px dashed #1a1200;
+    border-radius:16px;
+    padding:16px;
+    margin-top:6px;
+  }
+  .winner-box .wlabel{font-size:0.75rem;color:#3a1f00;letter-spacing:2px;text-transform:uppercase;}
+  .winner-box .wnumber{
+    font-family:'Bangers',cursive;font-size:3rem;color:#1a1200;line-height:1;margin:4px 0;
+  }
+  .winner-box .wname{font-size:1.2rem;font-weight:700;color:#1a1200;}
+
+  /* Sorteo modal */
+  .sorteo-modal .modal{max-width:460px;text-align:center;}
+  .spin-display{
+    font-family:'Bangers',cursive;
+    font-size:4rem;
+    color:var(--gold);
+    margin:18px 0 6px;
+    text-shadow:0 0 30px rgba(255,210,63,0.6);
+    letter-spacing:2px;
+  }
+  .spin-sub{color:var(--muted);font-size:0.8rem;margin-bottom:6px;}
+  .spin-winner-name{
+    font-size:1.3rem;font-weight:700;color:var(--chakra-blue);margin-top:6px;
+    min-height:1.6rem;
+  }
+  .spin-emoji{font-size:1.8rem;}
+
+  @media (max-width:900px){
+    .raffle-layout{grid-template-columns:1fr;}
+    .tickets-panel{position:static;max-height:340px;}
+  }
+
   @media (max-width:480px){
     .grid{grid-template-columns:repeat(auto-fill, minmax(38px,1fr));gap:6px;padding:12px;}
     .num{font-size:0.7rem;border-radius:8px;}
     .sticky-bar{flex-direction:column;align-items:stretch;text-align:center;}
     .btn{width:100%;}
+    .winner-box .wnumber{font-size:2.2rem;}
+    .spin-display{font-size:2.8rem;}
   }
 </style>
 </head>
@@ -470,19 +632,52 @@
   </div>
   <p id="syncStatus" style="text-align:center;font-size:0.75rem;color:var(--muted);margin:-6px 0 18px;">🔄 Conectando con la base de datos...</p>
 
-  <div class="grid-controls">
-    <input type="text" id="searchNum" placeholder="🔍 Buscar número..." inputmode="numeric">
-    <button class="btn secondary" id="clearSelection" style="font-size:0.8rem;padding:8px 16px;">Limpiar selección</button>
+  <div class="progress-wrap">
+    <div class="progress-label">
+      <span>Chakra acumulado 🔥</span>
+      <span><b id="progressCount">0</b> / 300 números vendidos (<span id="progressPct">0%</span>)</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
   </div>
 
-  <div class="grid" id="numberGrid"></div>
+  <div class="raffle-layout">
+    <div class="grid-col">
+      <div class="grid-controls">
+        <input type="text" id="searchNum" placeholder="🔍 Buscar número..." inputmode="numeric">
+        <button class="btn secondary" id="clearSelection" style="font-size:0.8rem;padding:8px 16px;">Limpiar selección</button>
+      </div>
 
-  <div class="sticky-bar">
-    <div class="info">
-      Seleccionados: <b id="countSelected">0</b> &nbsp;|&nbsp;
-      Total: <span class="total" id="totalPrice">S/ 0.00</span>
+      <div class="grid" id="numberGrid"></div>
+
+      <div class="sticky-bar">
+        <div class="info">
+          Seleccionados: <b id="countSelected">0</b> &nbsp;|&nbsp;
+          Total: <span class="total" id="totalPrice">S/ 0.00</span>
+        </div>
+        <button class="btn" id="buyBtn" disabled>🔥 Comprar Rifa</button>
+      </div>
     </div>
-    <button class="btn" id="buyBtn" disabled>🔥 Comprar Rifa</button>
+
+    <aside class="tickets-panel">
+      <h3>🎟️ Tickets vendidos</h3>
+      <div class="tickets-count" id="ticketsCount">0 compradores</div>
+      <div class="tickets-list" id="ticketsList">
+        <p class="tickets-empty">Todavía no hay tickets vendidos.<br>¡Sé el primer ninja en apoyar a Mateito! 🍥</p>
+      </div>
+    </aside>
+  </div>
+
+  <div class="sorteo-banner" id="sorteoBanner">
+    <h3>🏆 ¡Todos los números fueron vendidos!</h3>
+    <p>Llegó la hora del destino, ninja. Es momento de sortear la rifa.</p>
+    <button class="btn-sorteo" id="sorteoBtn">🎲 SORTEAR RIFA</button>
+    <div class="winner-box" id="winnerBox" style="display:none;">
+      <div class="wlabel">Número ganador</div>
+      <div class="wnumber" id="winnerNumber">--</div>
+      <div class="wname" id="winnerName">--</div>
+    </div>
   </div>
 
   <div class="payment">
@@ -522,6 +717,21 @@
   </div>
 </div>
 
+<!-- Modal Sorteo -->
+<div class="modal-overlay sorteo-modal" id="sorteoModalOverlay">
+  <div class="modal">
+    <h2>🎲 Sorteando la Rifa...</h2>
+    <p class="sub">El destino elige un número al azar entre los vendidos</p>
+    <div class="spin-emoji" id="spinEmoji">🍥</div>
+    <div class="spin-display" id="spinDisplay">---</div>
+    <div class="spin-sub" id="spinSub">Girando la ruleta ninja...</div>
+    <div class="spin-winner-name" id="spinWinnerName"></div>
+    <div class="modal-actions" id="sorteoModalActions" style="display:none;">
+      <button class="btn" id="closeSorteoModal">¡Genial! 🎉</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <canvas id="ticketCanvas" style="display:none;"></canvas>
@@ -550,15 +760,26 @@
   let firebaseReady = false;
 
   // Escucha en tiempo real: cualquier compra de cualquier persona actualiza la cuadrícula al instante
+  const RESULT_COLLECTION = 'rifa_mateito_sorteo';
+  let raffleResult = null;
+
   db.collection(COLLECTION).onSnapshot((snapshot) => {
     occupied = {};
     snapshot.forEach(doc => { occupied[doc.id] = doc.data(); });
     firebaseReady = true;
     document.getElementById('syncStatus').textContent = '🟢 Conectado — números actualizados en tiempo real';
     buildGrid();
+    buildTicketsPanel();
+    updateProgress();
   }, (error) => {
     console.error(error);
     document.getElementById('syncStatus').textContent = '⚠️ No se pudo conectar a la base de datos. Revisa firebaseConfig y las reglas de Firestore.';
+  });
+
+  // Escucha en tiempo real el resultado del sorteo (compartido para todos)
+  db.collection(RESULT_COLLECTION).doc('resultado').onSnapshot((doc) => {
+    raffleResult = doc.exists ? doc.data() : null;
+    renderSorteoBanner();
   });
 
   const grid = document.getElementById('numberGrid');
@@ -570,6 +791,8 @@
 
   // Muestra la cuadrícula de inmediato (se actualizará sola en cuanto llegue la data de Firebase)
   buildGrid();
+  buildTicketsPanel();
+  updateProgress();
 
   function buildGrid(){
     grid.innerHTML = '';
@@ -585,6 +808,101 @@
         cell.addEventListener('click', () => toggleSelect(i, cell));
       }
       grid.appendChild(cell);
+    }
+  }
+
+  // ---------- PANEL DE TICKETS VENDIDOS ----------
+  const ticketsList = document.getElementById('ticketsList');
+  const ticketsCount = document.getElementById('ticketsCount');
+
+  function buildTicketsPanel(){
+    const groups = {};
+    const order = [];
+
+    Object.keys(occupied).forEach(numStr => {
+      const data = occupied[numStr];
+      const key = (data.name || 'Sin nombre') + '|' + (data.phone || '');
+      if(!groups[key]){
+        groups[key] = {
+          name: data.name || 'Sin nombre',
+          phone: data.phone || '',
+          nums: [],
+          ts: data.timestamp && data.timestamp.toMillis ? data.timestamp.toMillis() : 0
+        };
+        order.push(key);
+      }
+      groups[key].nums.push(parseInt(numStr, 10));
+      if(data.timestamp && data.timestamp.toMillis){
+        groups[key].ts = Math.min(groups[key].ts || Infinity, data.timestamp.toMillis());
+      }
+    });
+
+    const tickets = order.map(k => groups[k]).sort((a,b) => (a.ts||0) - (b.ts||0));
+
+    ticketsCount.textContent = tickets.length + (tickets.length === 1 ? ' comprador' : ' compradores');
+
+    if(tickets.length === 0){
+      ticketsList.innerHTML = '<p class="tickets-empty">Todavía no hay tickets vendidos.<br>¡Sé el primer ninja en apoyar a Mateito! 🍥</p>';
+      return;
+    }
+
+    ticketsList.innerHTML = '';
+    tickets.forEach(t => {
+      const nums = t.nums.slice().sort((a,b) => a-b);
+      const item = document.createElement('div');
+      item.className = 'ticket-item';
+      item.innerHTML =
+        '<div class="buyer">🥷 ' + escapeHtml(t.name) + '<span class="cnt">' + nums.length + (nums.length===1?' número':' números') + '</span></div>' +
+        '<div class="nums">' + nums.map(n => '<span>' + n + '</span>').join('') + '</div>';
+      ticketsList.appendChild(item);
+    });
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ---------- BARRA DE PROGRESO ----------
+  const progressFill = document.getElementById('progressFill');
+  const progressCount = document.getElementById('progressCount');
+  const progressPct = document.getElementById('progressPct');
+  const sorteoBanner = document.getElementById('sorteoBanner');
+
+  function updateProgress(){
+    const count = Object.keys(occupied).length;
+    const pct = Math.round((count / TOTAL_NUMBERS) * 100);
+    progressCount.textContent = count;
+    progressPct.textContent = pct + '%';
+    progressFill.style.width = pct + '%';
+    progressFill.classList.toggle('full', count >= TOTAL_NUMBERS);
+
+    if(count >= TOTAL_NUMBERS){
+      sorteoBanner.classList.add('show');
+    } else {
+      sorteoBanner.classList.remove('show');
+    }
+    renderSorteoBanner();
+  }
+
+  function renderSorteoBanner(){
+    const count = Object.keys(occupied).length;
+    if(count < TOTAL_NUMBERS){
+      sorteoBanner.classList.remove('show');
+      return;
+    }
+    sorteoBanner.classList.add('show');
+    const sorteoBtn = document.getElementById('sorteoBtn');
+    const winnerBox = document.getElementById('winnerBox');
+    if(raffleResult){
+      sorteoBtn.style.display = 'none';
+      winnerBox.style.display = 'block';
+      document.getElementById('winnerNumber').textContent = raffleResult.number;
+      document.getElementById('winnerName').textContent = '🥇 ' + raffleResult.name;
+    } else {
+      sorteoBtn.style.display = 'inline-block';
+      winnerBox.style.display = 'none';
     }
   }
 
@@ -734,11 +1052,94 @@
       }
       const batch = db.batch();
       snapshot.forEach(doc => batch.delete(doc.ref));
+      batch.delete(db.collection(RESULT_COLLECTION).doc('resultado'));
       await batch.commit();
       showToast('🔄 ¡Rifa reiniciada! Todos los números están disponibles de nuevo.');
     } catch(err){
       alert('Error al reiniciar la rifa: ' + err.message);
     }
+  });
+
+  // ---------- SORTEO DE LA RIFA ----------
+  const sorteoModalOverlay = document.getElementById('sorteoModalOverlay');
+  const spinDisplay = document.getElementById('spinDisplay');
+  const spinSub = document.getElementById('spinSub');
+  const spinWinnerName = document.getElementById('spinWinnerName');
+  const spinEmoji = document.getElementById('spinEmoji');
+  const sorteoModalActions = document.getElementById('sorteoModalActions');
+  const NARUTO_EMOJIS = ['🍥','🌀','🔥','⚡','🥷','🍜'];
+
+  document.getElementById('sorteoBtn').addEventListener('click', async () => {
+    if(raffleResult){ return; }
+    const pass = prompt('Contraseña de administrador para sortear la rifa:');
+    if(pass === null) return;
+    if(pass !== 'RIFA2026'){
+      alert('Contraseña incorrecta.');
+      return;
+    }
+    const sure = confirm('¿Listo para sortear? Esto elegirá un número ganador al azar entre todos los vendidos y quedará registrado para todos.');
+    if(!sure) return;
+
+    runSorteoAnimation();
+  });
+
+  function runSorteoAnimation(){
+    const soldNumbers = Object.keys(occupied).map(n => parseInt(n, 10));
+    if(soldNumbers.length === 0){
+      alert('No hay números vendidos todavía.');
+      return;
+    }
+
+    sorteoModalOverlay.classList.add('open');
+    spinDisplay.textContent = '---';
+    spinSub.textContent = 'Girando la ruleta ninja...';
+    spinWinnerName.textContent = '';
+    sorteoModalActions.style.display = 'none';
+
+    // Número ganador definitivo, elegido al azar entre los vendidos
+    const winningNumber = soldNumbers[Math.floor(Math.random() * soldNumbers.length)];
+    const winnerData = occupied[String(winningNumber)];
+
+    let ticks = 0;
+    const totalTicks = 26;
+    const spinInterval = setInterval(() => {
+      const randomShown = soldNumbers[Math.floor(Math.random() * soldNumbers.length)];
+      spinDisplay.textContent = randomShown;
+      spinEmoji.textContent = NARUTO_EMOJIS[Math.floor(Math.random() * NARUTO_EMOJIS.length)];
+      ticks++;
+      if(ticks >= totalTicks){
+        clearInterval(spinInterval);
+        finishSorteo(winningNumber, winnerData);
+      }
+    }, 110);
+  }
+
+  async function finishSorteo(winningNumber, winnerData){
+    spinDisplay.textContent = winningNumber;
+    spinEmoji.textContent = '🏆';
+    spinSub.textContent = '¡Número ganador!';
+    spinWinnerName.textContent = '🥇 ' + winnerData.name;
+    sorteoModalActions.style.display = 'flex';
+    sorteoModalActions.style.justifyContent = 'center';
+
+    try {
+      await db.collection(RESULT_COLLECTION).doc('resultado').set({
+        number: winningNumber,
+        name: winnerData.name,
+        phone: winnerData.phone || '',
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } catch(err){
+      console.error(err);
+      alert('El sorteo se realizó pero hubo un error al guardarlo: ' + err.message);
+    }
+  }
+
+  document.getElementById('closeSorteoModal').addEventListener('click', () => {
+    sorteoModalOverlay.classList.remove('open');
+  });
+  sorteoModalOverlay.addEventListener('click', (e) => {
+    if(e.target === sorteoModalOverlay) sorteoModalOverlay.classList.remove('open');
   });
 
   // ---------- TICKET IMAGE GENERATION ----------
