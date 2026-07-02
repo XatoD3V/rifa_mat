@@ -396,6 +396,7 @@
     box-shadow:0 10px 24px rgba(0,0,0,0.3);
   }
   .toast.show{transform:translateX(-50%) translateY(0);}
+  .toast.error{background:var(--sharingan);color:#fff;}
 
   /* ---------- PROGRESS BAR ---------- */
   .progress-wrap{
@@ -478,6 +479,7 @@
   .ticket-item .buyer{
     font-weight:600;font-size:0.82rem;color:var(--paper);
     display:flex;align-items:center;gap:6px;
+    flex-wrap:wrap;
   }
   .ticket-item .buyer .cnt{
     margin-left:auto;font-size:0.68rem;font-weight:400;color:var(--muted);
@@ -753,132 +755,83 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const COLLECTION = 'rifa_mateito_numeros';
+  const RESULT_COLLECTION = 'rifa_mateito_sorteo';
 
-  // occupied = { "12": {name:"...", phone:"...", date:"..."} , ... }
   let occupied = {};
   let selected = new Set();
   let firebaseReady = false;
-
-  // Escucha en tiempo real: cualquier compra de cualquier persona actualiza la cuadrícula al instante
-  const RESULT_COLLECTION = 'rifa_mateito_sorteo';
   let raffleResult = null;
 
-  db.collection(COLLECTION).onSnapshot((snapshot) => {
-    occupied = {};
-    snapshot.forEach(doc => { occupied[doc.id] = doc.data(); });
-    firebaseReady = true;
-    document.getElementById('syncStatus').textContent = '🟢 Conectado — números actualizados en tiempo real';
-    buildGrid();
-    buildTicketsPanel();
-    updateProgress();
-  }, (error) => {
-    console.error(error);
-    document.getElementById('syncStatus').textContent = '⚠️ No se pudo conectar a la base de datos. Revisa firebaseConfig y las reglas de Firestore.';
-  });
-
-  // Escucha en tiempo real el resultado del sorteo (compartido para todos)
-  db.collection(RESULT_COLLECTION).doc('resultado').onSnapshot((doc) => {
-    raffleResult = doc.exists ? doc.data() : null;
-    renderSorteoBanner();
-  });
-
+  // Referencias DOM
   const grid = document.getElementById('numberGrid');
   const countSelected = document.getElementById('countSelected');
   const totalPrice = document.getElementById('totalPrice');
   const buyBtn = document.getElementById('buyBtn');
   const clearBtn = document.getElementById('clearSelection');
   const searchInput = document.getElementById('searchNum');
-
-  // Muestra la cuadrícula de inmediato (se actualizará sola en cuanto llegue la data de Firebase)
-  buildGrid();
-  buildTicketsPanel();
-  updateProgress();
-
-  function buildGrid(){
-    grid.innerHTML = '';
-    for(let i=1;i<=TOTAL_NUMBERS;i++){
-      const cell = document.createElement('div');
-      cell.className = 'num';
-      cell.textContent = i;
-      cell.dataset.num = i;
-      if(occupied[i]){
-        cell.classList.add('taken');
-        cell.title = 'Vendido';
-      } else {
-        cell.addEventListener('click', () => toggleSelect(i, cell));
-      }
-      grid.appendChild(cell);
-    }
-  }
-
-  // ---------- PANEL DE TICKETS VENDIDOS ----------
-  const ticketsList = document.getElementById('ticketsList');
-  const ticketsCount = document.getElementById('ticketsCount');
-
-  function buildTicketsPanel(){
-    const groups = {};
-    const order = [];
-
-    Object.keys(occupied).forEach(numStr => {
-      const data = occupied[numStr];
-      const key = (data.name || 'Sin nombre') + '|' + (data.phone || '');
-      if(!groups[key]){
-        groups[key] = {
-          name: data.name || 'Sin nombre',
-          phone: data.phone || '',
-          nums: [],
-          ts: data.timestamp && data.timestamp.toMillis ? data.timestamp.toMillis() : 0
-        };
-        order.push(key);
-      }
-      groups[key].nums.push(parseInt(numStr, 10));
-      if(data.timestamp && data.timestamp.toMillis){
-        groups[key].ts = Math.min(groups[key].ts || Infinity, data.timestamp.toMillis());
-      }
-    });
-
-    const tickets = order.map(k => groups[k]).sort((a,b) => (a.ts||0) - (b.ts||0));
-
-    ticketsCount.textContent = tickets.length + (tickets.length === 1 ? ' comprador' : ' compradores');
-
-    if(tickets.length === 0){
-      ticketsList.innerHTML = '<p class="tickets-empty">Todavía no hay tickets vendidos.<br>¡Sé el primer ninja en apoyar a Mateito! 🍥</p>';
-      return;
-    }
-
-    ticketsList.innerHTML = '';
-    tickets.forEach(t => {
-      const nums = t.nums.slice().sort((a,b) => a-b);
-      const item = document.createElement('div');
-      item.className = 'ticket-item';
-      item.innerHTML =
-        '<div class="buyer">🥷 ' + escapeHtml(t.name) + '<span class="cnt">' + nums.length + (nums.length===1?' número':' números') + '</span></div>' +
-        '<div class="nums">' + nums.map(n => '<span>' + n + '</span>').join('') + '</div>';
-      ticketsList.appendChild(item);
-    });
-  }
-
-  function escapeHtml(str){
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  // ---------- BARRA DE PROGRESO ----------
   const progressFill = document.getElementById('progressFill');
   const progressCount = document.getElementById('progressCount');
   const progressPct = document.getElementById('progressPct');
   const sorteoBanner = document.getElementById('sorteoBanner');
+  const ticketsList = document.getElementById('ticketsList');
+  const ticketsCount = document.getElementById('ticketsCount');
 
-  function updateProgress(){
+  // ========== FUNCIONES PRINCIPALES ==========
+
+  function buildGrid() {
+    grid.innerHTML = '';
+    for (let i = 1; i <= TOTAL_NUMBERS; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'num';
+      cell.textContent = i;
+      cell.dataset.num = i;
+      
+      if (occupied[i]) {
+        cell.classList.add('taken');
+        cell.title = 'Vendido a ' + (occupied[i].name || 'alguien');
+      } else {
+        cell.addEventListener('click', function() {
+          toggleSelect(i, this);
+        });
+      }
+      grid.appendChild(cell);
+    }
+    // Restaurar selecciones visuales
+    selected.forEach(num => {
+      const cell = grid.querySelector('.num[data-num="' + num + '"]');
+      if (cell && !cell.classList.contains('taken')) {
+        cell.classList.add('selected');
+      }
+    });
+  }
+
+  function toggleSelect(num, cell) {
+    if (occupied[num]) return;
+    if (selected.has(num)) {
+      selected.delete(num);
+      cell.classList.remove('selected');
+    } else {
+      selected.add(num);
+      cell.classList.add('selected');
+    }
+    updateBar();
+  }
+
+  function updateBar() {
+    countSelected.textContent = selected.size;
+    totalPrice.textContent = 'S/ ' + (selected.size * PRICE).toFixed(2);
+    buyBtn.disabled = selected.size === 0;
+  }
+
+  function updateProgress() {
     const count = Object.keys(occupied).length;
     const pct = Math.round((count / TOTAL_NUMBERS) * 100);
     progressCount.textContent = count;
     progressPct.textContent = pct + '%';
     progressFill.style.width = pct + '%';
     progressFill.classList.toggle('full', count >= TOTAL_NUMBERS);
-
-    if(count >= TOTAL_NUMBERS){
+    
+    if (count >= TOTAL_NUMBERS) {
       sorteoBanner.classList.add('show');
     } else {
       sorteoBanner.classList.remove('show');
@@ -886,16 +839,69 @@
     renderSorteoBanner();
   }
 
-  function renderSorteoBanner(){
+  function buildTicketsPanel() {
+    const groups = {};
+    const order = [];
+
+    Object.keys(occupied).forEach(numStr => {
+      const data = occupied[numStr];
+      const name = data.name || 'Sin nombre';
+      const phone = data.phone || '';
+      const key = name + '|' + phone;
+      
+      if (!groups[key]) {
+        groups[key] = {
+          name: name,
+          phone: phone,
+          nums: [],
+          ts: data.timestamp && data.timestamp.toMillis ? data.timestamp.toMillis() : Date.now()
+        };
+        order.push(key);
+      }
+      groups[key].nums.push(parseInt(numStr, 10));
+      if (data.timestamp && data.timestamp.toMillis) {
+        const ts = data.timestamp.toMillis();
+        if (ts > groups[key].ts) groups[key].ts = ts;
+      }
+    });
+
+    const tickets = order.map(k => groups[k]).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+    const totalCompradores = tickets.length;
+    ticketsCount.textContent = totalCompradores + (totalCompradores === 1 ? ' comprador' : ' compradores');
+
+    if (tickets.length === 0) {
+      ticketsList.innerHTML = '<p class="tickets-empty">Todavía no hay tickets vendidos.<br>¡Sé el primer ninja en apoyar a Mateito! 🍥</p>';
+      return;
+    }
+
+    ticketsList.innerHTML = '';
+    tickets.forEach(t => {
+      const nums = t.nums.slice().sort((a, b) => a - b);
+      const item = document.createElement('div');
+      item.className = 'ticket-item';
+      let buyerDisplay = '🥷 ' + escapeHtml(t.name);
+      if (t.phone) {
+        buyerDisplay += ' 📱 ' + escapeHtml(t.phone);
+      }
+      item.innerHTML = 
+        '<div class="buyer">' + buyerDisplay + 
+        '<span class="cnt">' + nums.length + (nums.length === 1 ? ' número' : ' números') + '</span></div>' +
+        '<div class="nums">' + nums.map(n => '<span>' + n + '</span>').join('') + '</div>';
+      ticketsList.appendChild(item);
+    });
+  }
+
+  function renderSorteoBanner() {
     const count = Object.keys(occupied).length;
-    if(count < TOTAL_NUMBERS){
+    if (count < TOTAL_NUMBERS) {
       sorteoBanner.classList.remove('show');
       return;
     }
     sorteoBanner.classList.add('show');
     const sorteoBtn = document.getElementById('sorteoBtn');
     const winnerBox = document.getElementById('winnerBox');
-    if(raffleResult){
+    if (raffleResult) {
       sorteoBtn.style.display = 'none';
       winnerBox.style.display = 'block';
       document.getElementById('winnerNumber').textContent = raffleResult.number;
@@ -906,37 +912,83 @@
     }
   }
 
-  function toggleSelect(num, cell){
-    if(occupied[num]) return;
-    if(selected.has(num)){
-      selected.delete(num);
-      cell.classList.remove('selected');
-    } else {
-      selected.add(num);
-      cell.classList.add('selected');
-    }
+  function showToast(msg, isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast' + (isError ? ' error' : '');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ========== FIREBASE SINCRO ==========
+
+  // Escucha en tiempo real de números vendidos
+  db.collection(COLLECTION).onSnapshot((snapshot) => {
+    occupied = {};
+    snapshot.forEach(doc => {
+      occupied[doc.id] = doc.data();
+    });
+    firebaseReady = true;
+    document.getElementById('syncStatus').textContent = '🟢 Conectado — números actualizados en tiempo real';
+    document.getElementById('syncStatus').style.color = '#3fbf7f';
+    
+    // Actualizar toda la interfaz
+    buildGrid();
+    buildTicketsPanel();
+    updateProgress();
     updateBar();
-  }
+    renderSorteoBanner();
+    
+    // Limpiar selección si algún número ya no está disponible
+    const selectedToRemove = [];
+    selected.forEach(num => {
+      if (occupied[num]) {
+        selectedToRemove.push(num);
+      }
+    });
+    selectedToRemove.forEach(num => {
+      selected.delete(num);
+      const cell = grid.querySelector('.num[data-num="' + num + '"]');
+      if (cell) cell.classList.remove('selected');
+    });
+    if (selectedToRemove.length > 0) {
+      updateBar();
+    }
+  }, (error) => {
+    console.error(error);
+    document.getElementById('syncStatus').textContent = '⚠️ No se pudo conectar a la base de datos. Revisa firebaseConfig y las reglas de Firestore.';
+    document.getElementById('syncStatus').style.color = '#e63946';
+  });
 
-  function updateBar(){
-    countSelected.textContent = selected.size;
-    totalPrice.textContent = 'S/ ' + (selected.size * PRICE).toFixed(2);
-    buyBtn.disabled = selected.size === 0;
-  }
+  // Escucha en tiempo real del resultado del sorteo
+  db.collection(RESULT_COLLECTION).doc('resultado').onSnapshot((doc) => {
+    raffleResult = doc.exists ? doc.data() : null;
+    renderSorteoBanner();
+  });
 
+  // ========== EVENTOS ==========
+
+  // Limpiar selección
   clearBtn.addEventListener('click', () => {
     selected.forEach(num => {
-      const cell = grid.querySelector('.num[data-num="'+num+'"]');
-      if(cell) cell.classList.remove('selected');
+      const cell = grid.querySelector('.num[data-num="' + num + '"]');
+      if (cell) cell.classList.remove('selected');
     });
     selected.clear();
     updateBar();
   });
 
+  // Buscar número
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim();
     document.querySelectorAll('.num').forEach(cell => {
-      if(q === ''){
+      if (q === '') {
         cell.classList.remove('hidden');
       } else {
         cell.classList.toggle('hidden', !cell.dataset.num.startsWith(q));
@@ -944,183 +996,158 @@
     });
   });
 
-  // ---------- MODAL ----------
-  const modalOverlay = document.getElementById('modalOverlay');
-  const chosenNumbersModal = document.getElementById('chosenNumbersModal');
-  const buyerName = document.getElementById('buyerName');
-  const buyerPhone = document.getElementById('buyerPhone');
-
+  // Abrir modal de compra
   buyBtn.addEventListener('click', () => {
-    if(selected.size === 0) return;
+    if (selected.size === 0) {
+      showToast('⚠️ Selecciona al menos un número para comprar', true);
+      return;
+    }
+    const chosenNumbersModal = document.getElementById('chosenNumbersModal');
     chosenNumbersModal.innerHTML = '';
-    [...selected].sort((a,b)=>a-b).forEach(n => {
+    const sortedNumbers = [...selected].sort((a, b) => a - b);
+    sortedNumbers.forEach(n => {
       const s = document.createElement('span');
       s.textContent = n;
       chosenNumbersModal.appendChild(s);
     });
-    buyerName.value = '';
-    buyerPhone.value = '';
-    modalOverlay.classList.add('open');
+    document.getElementById('buyerName').value = '';
+    document.getElementById('buyerPhone').value = '';
+    document.getElementById('buyerName').style.borderColor = '';
+    document.getElementById('modalOverlay').classList.add('open');
   });
 
+  // Cerrar modal
   document.getElementById('cancelModal').addEventListener('click', () => {
-    modalOverlay.classList.remove('open');
+    document.getElementById('modalOverlay').classList.remove('open');
   });
-  modalOverlay.addEventListener('click', (e) => {
-    if(e.target === modalOverlay) modalOverlay.classList.remove('open');
+  document.getElementById('modalOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('modalOverlay')) {
+      document.getElementById('modalOverlay').classList.remove('open');
+    }
   });
 
-  const confirmBtn = document.getElementById('confirmBuy');
-
-  confirmBtn.addEventListener('click', async () => {
-    const name = buyerName.value.trim();
-    if(!name){
-      buyerName.focus();
-      buyerName.style.borderColor = '#e63946';
+  // Confirmar compra
+  document.getElementById('confirmBuy').addEventListener('click', async () => {
+    const name = document.getElementById('buyerName').value.trim();
+    if (!name) {
+      const input = document.getElementById('buyerName');
+      input.focus();
+      input.style.borderColor = '#e63946';
+      showToast('⚠️ Por favor ingresa tu nombre completo', true);
       return;
     }
-    if(!firebaseReady){
-      alert('Todavía se está conectando a la base de datos, espera un segundo e inténtalo de nuevo.');
+    if (!firebaseReady) {
+      showToast('⏳ Espera a que la base de datos esté conectada...', true);
       return;
     }
-    const phone = buyerPhone.value.trim();
-    const dateStr = new Date().toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
-    const nums = [...selected].sort((a,b)=>a-b);
+    
+    const phone = document.getElementById('buyerPhone').value.trim();
+    const dateStr = new Date().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const nums = [...selected].sort((a, b) => a - b);
+    const confirmBtn = document.getElementById('confirmBuy');
 
     confirmBtn.disabled = true;
-    confirmBtn.textContent = 'Guardando...';
+    confirmBtn.textContent = '⏳ Guardando...';
 
     try {
-      // Transacción: si alguien más compró uno de estos números en el último segundo, se cancela todo
       await db.runTransaction(async (tx) => {
         const refs = nums.map(n => db.collection(COLLECTION).doc(String(n)));
         const snaps = [];
-        for(const ref of refs){ snaps.push(await tx.get(ref)); }
+        for (const ref of refs) {
+          snaps.push(await tx.get(ref));
+        }
 
         const conflicts = [];
-        snaps.forEach((snap, i) => { if(snap.exists) conflicts.push(nums[i]); });
-        if(conflicts.length > 0){
-          throw new Error('¡Uy! El número ' + conflicts.join(', ') + ' ya lo compró otra persona hace un instante. Elige otro número.');
+        snaps.forEach((snap, i) => {
+          if (snap.exists) conflicts.push(nums[i]);
+        });
+        if (conflicts.length > 0) {
+          throw new Error('⚠️ El número ' + conflicts.join(', ') + ' ya lo compró otra persona. Elige otro número.');
         }
 
         snaps.forEach((snap, i) => {
           tx.set(refs[i], {
-            name, phone, date: dateStr,
+            name: name,
+            phone: phone || '',
+            date: dateStr,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
           });
         });
       });
 
       generateTicketImage(name, phone, nums, dateStr);
-
+      
       selected.clear();
       updateBar();
-      modalOverlay.classList.remove('open');
-      showToast('🎉 ¡Ticket generado y números bloqueados para todos!');
-    } catch(err){
-      alert(err.message || 'Ocurrió un error al guardar tu compra. Intenta de nuevo.');
+      document.getElementById('modalOverlay').classList.remove('open');
+      showToast('🎉 ¡Ticket generado! Números bloqueados exitosamente.');
+      
+    } catch (err) {
+      showToast('❌ ' + (err.message || 'Error al procesar la compra'), true);
+      console.error(err);
     } finally {
       confirmBtn.disabled = false;
       confirmBtn.textContent = 'Generar Ticket 🎟️';
     }
   });
 
-  function showToast(msg){
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3200);
-  }
-
-  // ---------- ADMIN: REINICIAR RIFA ----------
-  document.getElementById('resetLink').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const pass = prompt('Contraseña de administrador:');
-    if(pass === null) return;
-    if(pass !== 'RIFA2026'){
-      alert('Contraseña incorrecta.');
-      return;
-    }
-    const sure = confirm('¿Seguro que quieres reiniciar la rifa?\n\nEsto borrará TODOS los números vendidos y no se puede deshacer.');
-    if(!sure) return;
-
-    try{
-      const snapshot = await db.collection(COLLECTION).get();
-      if(snapshot.empty){
-        showToast('La rifa ya estaba vacía, no había nada que borrar.');
-        return;
-      }
-      const batch = db.batch();
-      snapshot.forEach(doc => batch.delete(doc.ref));
-      batch.delete(db.collection(RESULT_COLLECTION).doc('resultado'));
-      await batch.commit();
-      showToast('🔄 ¡Rifa reiniciada! Todos los números están disponibles de nuevo.');
-    } catch(err){
-      alert('Error al reiniciar la rifa: ' + err.message);
-    }
-  });
-
-  // ---------- SORTEO DE LA RIFA ----------
-  const sorteoModalOverlay = document.getElementById('sorteoModalOverlay');
-  const spinDisplay = document.getElementById('spinDisplay');
-  const spinSub = document.getElementById('spinSub');
-  const spinWinnerName = document.getElementById('spinWinnerName');
-  const spinEmoji = document.getElementById('spinEmoji');
-  const sorteoModalActions = document.getElementById('sorteoModalActions');
-  const NARUTO_EMOJIS = ['🍥','🌀','🔥','⚡','🥷','🍜'];
+  // ========== SORTEO ==========
 
   document.getElementById('sorteoBtn').addEventListener('click', async () => {
-    if(raffleResult){ return; }
+    if (raffleResult) return;
     const pass = prompt('Contraseña de administrador para sortear la rifa:');
-    if(pass === null) return;
-    if(pass !== 'RIFA2026'){
-      alert('Contraseña incorrecta.');
+    if (pass === null) return;
+    if (pass !== 'RIFA2026') {
+      showToast('❌ Contraseña incorrecta', true);
       return;
     }
     const sure = confirm('¿Listo para sortear? Esto elegirá un número ganador al azar entre todos los vendidos y quedará registrado para todos.');
-    if(!sure) return;
+    if (!sure) return;
 
     runSorteoAnimation();
   });
 
-  function runSorteoAnimation(){
+  function runSorteoAnimation() {
     const soldNumbers = Object.keys(occupied).map(n => parseInt(n, 10));
-    if(soldNumbers.length === 0){
-      alert('No hay números vendidos todavía.');
+    if (soldNumbers.length === 0) {
+      showToast('⚠️ No hay números vendidos todavía.', true);
       return;
     }
 
-    sorteoModalOverlay.classList.add('open');
-    spinDisplay.textContent = '---';
-    spinSub.textContent = 'Girando la ruleta ninja...';
-    spinWinnerName.textContent = '';
-    sorteoModalActions.style.display = 'none';
+    const overlay = document.getElementById('sorteoModalOverlay');
+    overlay.classList.add('open');
+    document.getElementById('spinDisplay').textContent = '---';
+    document.getElementById('spinSub').textContent = 'Girando la ruleta ninja...';
+    document.getElementById('spinWinnerName').textContent = '';
+    document.getElementById('sorteoModalActions').style.display = 'none';
+    document.getElementById('spinEmoji').textContent = '🍥';
 
-    // Número ganador definitivo, elegido al azar entre los vendidos
     const winningNumber = soldNumbers[Math.floor(Math.random() * soldNumbers.length)];
     const winnerData = occupied[String(winningNumber)];
 
     let ticks = 0;
     const totalTicks = 26;
+    const NARUTO_EMOJIS = ['🍥', '🌀', '🔥', '⚡', '🥷', '🍜'];
+    
     const spinInterval = setInterval(() => {
       const randomShown = soldNumbers[Math.floor(Math.random() * soldNumbers.length)];
-      spinDisplay.textContent = randomShown;
-      spinEmoji.textContent = NARUTO_EMOJIS[Math.floor(Math.random() * NARUTO_EMOJIS.length)];
+      document.getElementById('spinDisplay').textContent = randomShown;
+      document.getElementById('spinEmoji').textContent = NARUTO_EMOJIS[Math.floor(Math.random() * NARUTO_EMOJIS.length)];
       ticks++;
-      if(ticks >= totalTicks){
+      if (ticks >= totalTicks) {
         clearInterval(spinInterval);
         finishSorteo(winningNumber, winnerData);
       }
     }, 110);
   }
 
-  async function finishSorteo(winningNumber, winnerData){
-    spinDisplay.textContent = winningNumber;
-    spinEmoji.textContent = '🏆';
-    spinSub.textContent = '¡Número ganador!';
-    spinWinnerName.textContent = '🏆 ' + winnerData.name;
-    sorteoModalActions.style.display = 'flex';
-    sorteoModalActions.style.justifyContent = 'center';
+  async function finishSorteo(winningNumber, winnerData) {
+    document.getElementById('spinDisplay').textContent = winningNumber;
+    document.getElementById('spinEmoji').textContent = '🏆';
+    document.getElementById('spinSub').textContent = '¡Número ganador!';
+    document.getElementById('spinWinnerName').textContent = '🥇 ' + winnerData.name;
+    document.getElementById('sorteoModalActions').style.display = 'flex';
+    document.getElementById('sorteoModalActions').style.justifyContent = 'center';
 
     try {
       await db.collection(RESULT_COLLECTION).doc('resultado').set({
@@ -1129,86 +1156,112 @@
         phone: winnerData.phone || '',
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
-    } catch(err){
+      showToast('🎉 ¡Sorteo completado! El ganador es ' + winnerData.name);
+    } catch (err) {
       console.error(err);
-      alert('El sorteo se realizó pero hubo un error al guardarlo: ' + err.message);
+      showToast('⚠️ El sorteo se realizó pero hubo un error al guardarlo.', true);
     }
   }
 
   document.getElementById('closeSorteoModal').addEventListener('click', () => {
-    sorteoModalOverlay.classList.remove('open');
+    document.getElementById('sorteoModalOverlay').classList.remove('open');
   });
-  sorteoModalOverlay.addEventListener('click', (e) => {
-    if(e.target === sorteoModalOverlay) sorteoModalOverlay.classList.remove('open');
+  document.getElementById('sorteoModalOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('sorteoModalOverlay')) {
+      document.getElementById('sorteoModalOverlay').classList.remove('open');
+    }
   });
 
-  // ---------- TICKET IMAGE GENERATION ----------
-  function generateTicketImage(name, phone, nums, dateStr){
+  // ========== ADMIN: REINICIAR ==========
+
+  document.getElementById('resetLink').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const pass = prompt('Contraseña de administrador:');
+    if (pass === null) return;
+    if (pass !== 'RIFA2026') {
+      showToast('❌ Contraseña incorrecta', true);
+      return;
+    }
+    const sure = confirm('¿Seguro que quieres reiniciar la rifa?\n\nEsto borrará TODOS los números vendidos y no se puede deshacer.');
+    if (!sure) return;
+
+    try {
+      const snapshot = await db.collection(COLLECTION).get();
+      const batch = db.batch();
+      snapshot.forEach(doc => batch.delete(doc.ref));
+      batch.delete(db.collection(RESULT_COLLECTION).doc('resultado'));
+      await batch.commit();
+      selected.clear();
+      updateBar();
+      showToast('🔄 ¡Rifa reiniciada! Todos los números están disponibles de nuevo.');
+    } catch (err) {
+      showToast('❌ Error al reiniciar: ' + err.message, true);
+    }
+  });
+
+  // ========== GENERAR TICKET ==========
+
+  function generateTicketImage(name, phone, nums, dateStr) {
     const canvas = document.getElementById('ticketCanvas');
     const ctx = canvas.getContext('2d');
     const W = 900, H = 1250;
-    canvas.width = W; canvas.height = H;
+    canvas.width = W;
+    canvas.height = H;
 
-    // background
-    const grad = ctx.createLinearGradient(0,0,0,H);
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, '#141a2b');
     grad.addColorStop(1, '#0c0f1a');
     ctx.fillStyle = grad;
-    ctx.fillRect(0,0,W,H);
+    ctx.fillRect(0, 0, W, H);
 
-    // decorative border
     ctx.strokeStyle = '#ff7a00';
     ctx.lineWidth = 6;
-    ctx.strokeRect(20,20,W-40,H-40);
+    ctx.strokeRect(20, 20, W - 40, H - 40);
     ctx.strokeStyle = 'rgba(46,196,241,0.5)';
     ctx.lineWidth = 2;
-    ctx.strokeRect(32,32,W-64,H-64);
+    ctx.strokeRect(32, 32, W - 64, H - 64);
 
-    // header band
     ctx.fillStyle = 'rgba(255,122,0,0.12)';
-    ctx.fillRect(40,40,W-80,140);
+    ctx.fillRect(40, 40, W - 80, 140);
 
     ctx.fillStyle = '#ffd23f';
     ctx.font = '600 20px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('RIFA SOLIDARIA', W/2, 85);
+    ctx.fillText('RIFA SOLIDARIA', W / 2, 85);
 
     ctx.fillStyle = '#ff9d33';
     ctx.font = '800 54px sans-serif';
-    ctx.fillText('APOYEMOS A MATEITO', W/2, 145);
+    ctx.fillText('APOYEMOS A MATEITO', W / 2, 145);
 
-    // subtitle
     ctx.fillStyle = '#9aa4c2';
     ctx.font = '400 18px sans-serif';
-    ctx.fillText('Ticket oficial de participación', W/2, 200);
+    ctx.fillText('Ticket oficial de participación', W / 2, 200);
 
-    // buyer info box
     let y = 250;
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(255,255,255,0.04)';
-    roundRect(ctx, 60, y, W-120, 110, 16);
+    roundRect(ctx, 60, y, W - 120, 110, 16);
     ctx.fill();
 
     ctx.fillStyle = '#e9ecf5';
     ctx.font = '600 22px sans-serif';
-    ctx.fillText('Comprador:', 84, y+38);
+    ctx.fillText('Comprador:', 84, y + 38);
     ctx.font = '700 26px sans-serif';
     ctx.fillStyle = '#2ec4f1';
-    ctx.fillText(name, 84, y+72);
+    ctx.fillText(name, 84, y + 72);
 
-    if(phone){
+    if (phone) {
       ctx.fillStyle = '#9aa4c2';
       ctx.font = '400 18px sans-serif';
-      ctx.fillText('Tel: ' + phone, 84, y+98);
+      ctx.fillText('Tel: ' + phone, 84, y + 98);
     }
 
     ctx.fillStyle = '#9aa4c2';
     ctx.font = '400 18px sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText('Fecha: ' + dateStr, W-84, y+38);
-    ctx.fillText('Colaboración: S/ ' + (nums.length*PRICE).toFixed(2), W-84, y+72);
+    ctx.fillText('Fecha: ' + dateStr, W - 84, y + 38);
+    ctx.fillText('Colaboración: S/ ' + (nums.length * PRICE).toFixed(2), W - 84, y + 72);
 
-    // numbers section
     y += 140;
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ff9d33';
@@ -1216,13 +1269,15 @@
     ctx.fillText('🔢 Números elegidos', 60, y);
 
     y += 20;
-    const boxSize = 62, gap = 12, perRow = Math.floor((W-120+gap)/(boxSize+gap));
+    const boxSize = 62,
+      gap = 12,
+      perRow = Math.floor((W - 120 + gap) / (boxSize + gap));
     nums.forEach((n, i) => {
       const col = i % perRow;
       const row = Math.floor(i / perRow);
-      const x = 60 + col*(boxSize+gap);
-      const yy = y + 10 + row*(boxSize+gap);
-      const g2 = ctx.createLinearGradient(x,yy,x+boxSize,yy+boxSize);
+      const x = 60 + col * (boxSize + gap);
+      const yy = y + 10 + row * (boxSize + gap);
+      const g2 = ctx.createLinearGradient(x, yy, x + boxSize, yy + boxSize);
       g2.addColorStop(0, '#2ec4f1');
       g2.addColorStop(1, '#1f6feb');
       ctx.fillStyle = g2;
@@ -1231,13 +1286,12 @@
       ctx.fillStyle = '#fff';
       ctx.font = '700 22px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(n, x+boxSize/2, yy+boxSize/2+8);
+      ctx.fillText(n, x + boxSize / 2, yy + boxSize / 2 + 8);
     });
 
     const rowsUsed = Math.ceil(nums.length / perRow);
-    y = y + 10 + rowsUsed*(boxSize+gap) + 30;
+    y = y + 10 + rowsUsed * (boxSize + gap) + 30;
 
-    // prizes section
     ctx.textAlign = 'left';
     ctx.fillStyle = '#ff9d33';
     ctx.font = '700 24px sans-serif';
@@ -1252,50 +1306,47 @@
     ctx.font = '400 20px sans-serif';
     ctx.fillStyle = '#e9ecf5';
     prizes.forEach((p, i) => {
-      ctx.fillText(p, 60, y + 40 + i*34);
+      ctx.fillText(p, 60, y + 40 + i * 34);
     });
 
-    y = y + 40 + prizes.length*34 + 20;
+    y = y + 40 + prizes.length * 34 + 20;
 
-    // message box
     ctx.fillStyle = 'rgba(255,210,63,0.08)';
-    roundRect(ctx, 60, y, W-120, 90, 16);
+    roundRect(ctx, 60, y, W - 120, 90, 16);
     ctx.fill();
     ctx.fillStyle = '#ffd23f';
     ctx.font = 'italic 600 18px sans-serif';
     ctx.textAlign = 'center';
-    wrapText(ctx, '“Mateito nació con pie bot y ya pasó por una operación. Todo lo recaudado será para sus medicinas y terapias.”', W/2, y+35, W-180, 26);
+    wrapText(ctx, '"Mateito nació con pie bot y ya pasó por una operación. Todo lo recaudado será para sus medicinas y terapias."', W / 2, y + 35, W - 180, 26);
 
-    // footer
     ctx.fillStyle = '#9aa4c2';
     ctx.font = '400 16px sans-serif';
-    ctx.fillText('¡Gracias por tu colaboración! ❤️  Yape: +51 997 869 097 - María Murayari Pacaya', W/2, H-50);
+    ctx.fillText('¡Gracias por tu colaboración! ❤️  Yape: +51 997 869 097 - María Murayari Pacaya', W / 2, H - 50);
 
-    // trigger download
     const link = document.createElement('a');
-    link.download = 'Rifa_Mateito_' + name.replace(/\s+/g,'_') + '.png';
+    link.download = 'Rifa_Mateito_' + name.replace(/\s+/g, '_') + '.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
   }
 
-  function roundRect(ctx, x, y, w, h, r){
+  function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x+r, y);
-    ctx.arcTo(x+w, y, x+w, y+h, r);
-    ctx.arcTo(x+w, y+h, x, y+h, r);
-    ctx.arcTo(x, y+h, x, y, r);
-    ctx.arcTo(x, y, x+w, y, r);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
 
-  function wrapText(ctx, text, x, y, maxWidth, lineHeight){
+  function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
     const words = text.split(' ');
     let line = '';
     let curY = y;
-    for(let n=0;n<words.length;n++){
+    for (let n = 0; n < words.length; n++) {
       const testLine = line + words[n] + ' ';
       const metrics = ctx.measureText(testLine);
-      if(metrics.width > maxWidth && n > 0){
+      if (metrics.width > maxWidth && n > 0) {
         ctx.fillText(line, x, curY);
         line = words[n] + ' ';
         curY += lineHeight;
@@ -1305,6 +1356,10 @@
     }
     ctx.fillText(line, x, curY);
   }
+
+  // ========== INICIALIZACIÓN ==========
+  buildGrid();
+  updateBar();
 </script>
 </body>
 </html>
